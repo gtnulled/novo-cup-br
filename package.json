@@ -67,8 +67,6 @@
     "@next-auth/prisma-adapter": "latest",
     "bcrypt": "latest",
     "tailwindcss": "latest",
-    "@aws-sdk/client-s3": "latest",
-    "@aws-sdk/s3-request-presigner": "latest",
     "fs": "latest",
     "path": "latest"
   },
