@@ -8,7 +8,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
+import type React from "react"
 
 export default function PresbyterForm() {
   const [formData, setFormData] = useState({
@@ -16,8 +18,8 @@ export default function PresbyterForm() {
     type: "",
     diocese: "",
     ordinationDate: "",
-    ordinationDocument: null,
-    profilePicture: null,
+    ordinationDocument: null as string | null,
+    profilePicture: null as string | null,
     bio: "",
     socialMedia: {
       facebook: "",
@@ -30,7 +32,10 @@ export default function PresbyterForm() {
     },
   })
   const [agreeTerms, setAgreeTerms] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -57,21 +62,62 @@ export default function PresbyterForm() {
     }))
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
-      setFormData((prev) => ({ ...prev, [e.target.name]: file }))
+      const formData = new FormData()
+      formData.append("file", file)
+
+      try {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        })
+
+        const result = await response.json()
+
+        if (result.success) {
+          setFormData((prev) => ({
+            ...prev,
+            [e.target.name]: `/uploads/${result.filename}`,
+          }))
+
+          toast({
+            title: "Arquivo enviado com sucesso",
+            description: "O arquivo foi carregado e associado ao seu cadastro.",
+          })
+        } else {
+          throw new Error("Falha ao enviar o arquivo")
+        }
+      } catch (error) {
+        console.error("Error uploading file:", error)
+        toast({
+          title: "Erro ao enviar arquivo",
+          description: "Ocorreu um erro ao tentar enviar o arquivo. Por favor, tente novamente.",
+          variant: "destructive",
+        })
+      }
     }
+  }
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+    if (!formData.name) newErrors.name = "Nome é obrigatório"
+    if (!formData.type) newErrors.type = "Tipo é obrigatório"
+    if (!formData.diocese) newErrors.diocese = "Diocese é obrigatória"
+    if (!formData.ordinationDate) newErrors.ordinationDate = "Data de ordenação é obrigatória"
+    if (!formData.contact.email) newErrors.email = "Email é obrigatório"
+    if (!agreeTerms) newErrors.terms = "Você deve concordar com os termos"
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!agreeTerms) {
-      alert("Você deve concordar com os Termos de Uso e Política de Privacidade para prosseguir.")
-      return
-    }
-    // Implement form submission logic here
-    // This is a placeholder for the actual submission logic
+    if (!validateForm()) return
+
+    setIsSubmitting(true)
     try {
       const response = await fetch("/api/presbyters", {
         method: "POST",
@@ -81,25 +127,39 @@ export default function PresbyterForm() {
         body: JSON.stringify(formData),
       })
       if (response.ok) {
+        toast({
+          title: "Cadastro enviado com sucesso!",
+          description: "Seu cadastro será analisado em breve.",
+        })
         router.push("/cadastro-sucesso")
       } else {
-        // Handle error
+        throw new Error("Falha ao enviar o cadastro")
       }
     } catch (error) {
       console.error("Error submitting form:", error)
+      toast({
+        title: "Erro ao enviar cadastro",
+        description: "Por favor, tente novamente mais tarde.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Input
-        type="text"
-        name="name"
-        placeholder="Nome completo"
-        value={formData.name}
-        onChange={handleChange}
-        required
-      />
+      <div>
+        <Input
+          type="text"
+          name="name"
+          placeholder="Nome completo"
+          value={formData.name}
+          onChange={handleChange}
+          className={errors.name ? "border-red-500" : ""}
+        />
+        {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+      </div>
       <Select name="type" onValueChange={(value) => handleSelectChange("type", value)} required>
         <SelectTrigger>
           <SelectValue placeholder="Selecione o tipo" />
@@ -110,22 +170,31 @@ export default function PresbyterForm() {
           <SelectItem value="diacono">Diácono</SelectItem>
         </SelectContent>
       </Select>
-      <Input
-        type="text"
-        name="diocese"
-        placeholder="Diocese"
-        value={formData.diocese}
-        onChange={handleChange}
-        required
-      />
-      <Input
-        type="date"
-        name="ordinationDate"
-        placeholder="Data de Ordenação"
-        value={formData.ordinationDate}
-        onChange={handleChange}
-        required
-      />
+      {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type}</p>}
+      <div>
+        <Input
+          type="text"
+          name="diocese"
+          placeholder="Diocese"
+          value={formData.diocese}
+          onChange={handleChange}
+          className={errors.diocese ? "border-red-500" : ""}
+          required
+        />
+        {errors.diocese && <p className="text-red-500 text-sm mt-1">{errors.diocese}</p>}
+      </div>
+      <div>
+        <Input
+          type="date"
+          name="ordinationDate"
+          placeholder="Data de Ordenação"
+          value={formData.ordinationDate}
+          onChange={handleChange}
+          className={errors.ordinationDate ? "border-red-500" : ""}
+          required
+        />
+        {errors.ordinationDate && <p className="text-red-500 text-sm mt-1">{errors.ordinationDate}</p>}
+      </div>
       <Input type="file" name="ordinationDocument" onChange={handleFileChange} accept=".pdf,.doc,.docx" />
       <Input type="file" name="profilePicture" onChange={handleFileChange} accept="image/*" />
       <Textarea name="bio" placeholder="Biografia" value={formData.bio} onChange={handleChange} />
@@ -153,14 +222,18 @@ export default function PresbyterForm() {
         />
       </div>
       <div className="space-y-2">
-        <Input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={formData.contact.email}
-          onChange={handleContactChange}
-          required
-        />
+        <div>
+          <Input
+            type="email"
+            name="email"
+            placeholder="Email"
+            value={formData.contact.email}
+            onChange={handleContactChange}
+            className={errors.email ? "border-red-500" : ""}
+            required
+          />
+          {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+        </div>
         <Input
           type="tel"
           name="phone"
@@ -171,15 +244,17 @@ export default function PresbyterForm() {
       </div>
       <div className="flex items-center space-x-2">
         <Checkbox id="terms" checked={agreeTerms} onCheckedChange={(checked) => setAgreeTerms(checked as boolean)} />
-        <Label htmlFor="terms">
+        <Label htmlFor="terms" className={errors.terms ? "text-red-500" : ""}>
           Eu concordo com os{" "}
           <Link href="/termos-e-privacidade" className="text-primary hover:underline">
             Termos de Uso e Política de Privacidade
           </Link>
         </Label>
       </div>
-      <Button type="submit" className="w-full">
-        Enviar Cadastro
+      {errors.terms && <p className="text-red-500 text-sm mt-1">{errors.terms}</p>}
+
+      <Button type="submit" className="w-full" disabled={isSubmitting}>
+        {isSubmitting ? "Enviando..." : "Enviar Cadastro"}
       </Button>
     </form>
   )

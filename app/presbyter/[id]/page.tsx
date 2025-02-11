@@ -34,6 +34,18 @@ export default async function PresbyterProfile({ params }: { params: { id: strin
         <div className="mt-4">
           <h2 className="text-xl font-semibold">Informações</h2>
           <p>Data de Ordenação: {new Date(presbyter.ordinationDate).toLocaleDateString()}</p>
+          {presbyter.ordinationDocument && (
+            <p>
+              <a
+                href={presbyter.ordinationDocument}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline"
+              >
+                Ver documento de ordenação
+              </a>
+            </p>
+          )}
         </div>
         <div className="mt-4">
           <h2 className="text-xl font-semibold">Contato</h2>
@@ -47,7 +59,7 @@ export default async function PresbyterProfile({ params }: { params: { id: strin
               ([platform, url]) =>
                 url && (
                   <li key={platform}>
-                    <a href={url} target="_blank" rel="noopener noreferrer">
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
                       {platform}
                     </a>
                   </li>

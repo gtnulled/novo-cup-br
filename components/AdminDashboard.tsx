@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { UserCheckIcon, UserPlusIcon, UsersIcon, ShieldIcon } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { Select } from "@/components/ui/select"
+import { Pagination } from "@/components/ui/pagination"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function AdminDashboard() {
   const [presbyters, setPresbyters] = useState([])
@@ -17,20 +19,33 @@ export default function AdminDashboard() {
     pending: 0,
     verified: 0,
   })
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const { data: session } = useSession()
+  const { toast } = useToast()
 
   useEffect(() => {
-    fetchPresbyters()
+    fetchPresbyters(currentPage)
     fetchStats()
     if (session?.user?.role === "SUPER_ADMIN") {
       fetchUsers()
     }
-  }, [session])
+  }, [session, currentPage])
 
-  const fetchPresbyters = async () => {
-    const response = await fetch("/api/presbyters")
-    const data = await response.json()
-    setPresbyters(data)
+  const fetchPresbyters = async (page: number) => {
+    try {
+      const response = await fetch(`/api/presbyters?page=${page}`)
+      const data = await response.json()
+      setPresbyters(data.presbyters)
+      setTotalPages(data.totalPages)
+    } catch (error) {
+      console.error("Error fetching presbyters:", error)
+      toast({
+        title: "Erro ao carregar presbíteros",
+        description: "Por favor, tente novamente mais tarde.",
+        variant: "destructive",
+      })
+    }
   }
 
   const fetchStats = async () => {
@@ -46,30 +61,82 @@ export default function AdminDashboard() {
   }
 
   const handleApprove = async (id: string) => {
-    await fetch(`/api/presbyters/${id}/approve`, { method: "POST" })
-    fetchPresbyters()
-    fetchStats()
+    try {
+      await fetch(`/api/presbyters/${id}/approve`, { method: "POST" })
+      fetchPresbyters(currentPage)
+      fetchStats()
+      toast({
+        title: "Presbítero aprovado",
+        description: "O cadastro foi aprovado com sucesso.",
+      })
+    } catch (error) {
+      console.error("Error approving presbyter:", error)
+      toast({
+        title: "Erro ao aprovar presbítero",
+        description: "Por favor, tente novamente mais tarde.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleVerify = async (id: string) => {
-    await fetch(`/api/presbyters/${id}/verify`, { method: "POST" })
-    fetchPresbyters()
-    fetchStats()
+    try {
+      await fetch(`/api/presbyters/${id}/verify`, { method: "POST" })
+      fetchPresbyters(currentPage)
+      fetchStats()
+      toast({
+        title: "Presbítero verificado",
+        description: "O cadastro foi verificado com sucesso.",
+      })
+    } catch (error) {
+      console.error("Error verifying presbyter:", error)
+      toast({
+        title: "Erro ao verificar presbítero",
+        description: "Por favor, tente novamente mais tarde.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/presbyters/${id}`, { method: "DELETE" })
-    fetchPresbyters()
-    fetchStats()
+    try {
+      await fetch(`/api/presbyters/${id}`, { method: "DELETE" })
+      fetchPresbyters(currentPage)
+      fetchStats()
+      toast({
+        title: "Presbítero excluído",
+        description: "O cadastro foi excluído com sucesso.",
+      })
+    } catch (error) {
+      console.error("Error deleting presbyter:", error)
+      toast({
+        title: "Erro ao excluir presbítero",
+        description: "Por favor, tente novamente mais tarde.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleRoleChange = async (userId: string, newRole: string) => {
-    await fetch(`/api/users/${userId}/role`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: newRole }),
-    })
-    fetchUsers()
+    try {
+      await fetch(`/api/users/${userId}/role`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      })
+      fetchUsers()
+      toast({
+        title: "Função de usuário alterada",
+        description: "A função do usuário foi alterada com sucesso.",
+      })
+    } catch (error) {
+      console.error("Error changing user role:", error)
+      toast({
+        title: "Erro ao alterar função de usuário",
+        description: "Por favor, tente novamente mais tarde.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -148,6 +215,7 @@ export default function AdminDashboard() {
           ))}
         </TableBody>
       </Table>
+      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
       {session?.user?.role === "SUPER_ADMIN" && (
         <>

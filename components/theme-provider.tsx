@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState } from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 
 interface ThemeContext {
   theme: "light" | "dark" | "system"
@@ -18,27 +18,25 @@ export const ThemeProvider: React.FC<{
   defaultTheme?: "light" | "dark" | "system"
   enableSystem?: boolean
 }> = ({ children, attribute = "class", defaultTheme = "system", enableSystem = true }) => {
-  const [theme, setTheme] = useState<"light" | "dark" | "system">(
-    typeof window !== "undefined" && localStorage.getItem("theme")
-      ? (localStorage.getItem("theme") as "light" | "dark" | "system")
-      : defaultTheme,
-  )
+  const [theme, setTheme] = useState<"light" | "dark" | "system">(defaultTheme)
 
-  const prefersDark =
-    typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+  useEffect(() => {
+    const storedTheme = localStorage.getItem("theme") as "light" | "dark" | "system" | null
+    if (storedTheme) {
+      setTheme(storedTheme)
+    }
+  }, [])
 
-  useState(() => {
+  useEffect(() => {
+    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+
     if (enableSystem && theme === "system") {
       setTheme(prefersDark ? "dark" : "light")
     }
-  }, [prefersDark, enableSystem, theme])
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("theme", theme)
-      document.documentElement.setAttribute(attribute, theme)
-    }
-  }, [theme])
+    localStorage.setItem("theme", theme)
+    document.documentElement.setAttribute(attribute, theme)
+  }, [theme, enableSystem, attribute])
 
   return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>
 }

@@ -4,21 +4,30 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { SearchIcon } from "lucide-react"
+import { SearchIcon, Loader2 } from "lucide-react"
 import { useDebounce } from "@/lib/hooks"
 import type React from "react" // Added import for React
 
 export default function SearchBar() {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState([])
+  const [isLoading, setIsLoading] = useState(false) // Added isLoading state
   const router = useRouter()
   const debouncedQuery = useDebounce(query, 300)
 
   useEffect(() => {
     if (debouncedQuery.length > 2) {
+      setIsLoading(true) // Set isLoading to true before fetching
       fetch(`/api/search?q=${debouncedQuery}`)
         .then((res) => res.json())
-        .then((data) => setResults(data))
+        .then((data) => {
+          setResults(data)
+          setIsLoading(false) // Set isLoading to false after fetching
+        })
+        .catch((error) => {
+          console.error("Error fetching search results:", error)
+          setIsLoading(false) // Set isLoading to false on error
+        })
     } else {
       setResults([])
     }
@@ -42,7 +51,7 @@ export default function SearchBar() {
           className="w-full pr-10"
         />
         <Button type="submit" className="absolute right-0 top-0 bottom-0">
-          <SearchIcon className="w-4 h-4" />
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <SearchIcon className="w-4 h-4" />}
         </Button>
       </form>
       {results.length > 0 && (
